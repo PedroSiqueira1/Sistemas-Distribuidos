@@ -1,38 +1,98 @@
-#include<cstdlib>
-#include<cstdio>
-#include<array>
-#include<string>
-#include<iostream>
+#include <sys/wait.h> 
+#include <stdio.h>
+#include <stdlib.h>  
+#include <unistd.h>   
+#include <string.h>
+#include <cstdlib>
+#include <ctime>
+
+
+#define buffer_size 20
 
 using namespace std;
 
-void pipecommand(string strcmd){
+int pipe_params[2];
 
-    std::array<char, 128> buffer;
-    FILE *pipe = popen(strcmd.c_str(), "r");
-    if (!pipe){
-        cout << "Error opening pipe" << endl;
-        return;
+int isPrime(long n) {
+	int i; 
+	for (i = 2; i <= n / 2; ++i) {
+		if (n % i == 0){
+            return false;
+        }
     }
-
-    int c = 0;
-    while (fgets(buffer.data(), buffer.size(), pipe) != NULL) {
-        cout << buffer.data();
-        c++;
-    }
-    pclose(pipe);
+	return true;
 }
 
-int main(int argc, char *argv[]){
+int main(){
+    int N = 1;
+    int delta;
+    int numbers_to_produce = 20;
+    char buffer[buffer_size];
+    srand(time(0));
 
-    string strcmd = "";
-    while (1)
-    {
-        std::cout << "Enter command: ";
-        std::getline(std::cin, strcmd);
-        pipecommand(strcmd);
+
+    // If pipe fails, exit
+    if (pipe(pipe_params) == -1) {
+        perror("pipe failed");
+        exit(EXIT_FAILURE);
     }
-    
 
-    return 0;
+    // Fork the process
+    pid_t pid = fork();
+
+    // If fork fails, exit
+    if (pid == -1) {
+        perror("fork failed");
+        exit(EXIT_FAILURE);
+    }
+
+    // If producer process
+    if (pid > 0 ) {
+        // Close the read end of the pipe= 0) {
+        // Close the read end of the pipe
+        close(pipe_params[0]);
+
+        // Write to the pipe
+        for (int i = 0; i < numbers_to_produce; i++) {
+            delta = rand() % 100 + 1;
+            N += delta;
+            sprintf(buffer, "%d", N);
+            write(pipe_params[1], buffer, buffer_size);
+            
+        }
+
+        // Write 0 in pipe to signal the end of the stream
+        sprintf(buffer, "%d", 0);
+        write(pipe_params[1], buffer, buffer_size);
+        
+
+        // Close the write end of the pipe
+        close(pipe_params[1]);
+    }
+
+    if(pid == 0) {
+        // Close the write end of the pipe
+        close(pipe_params[1]);
+
+        // Read from the pipe
+        while (read(pipe_params[0], buffer, buffer_size) > 0) {
+
+            // If the read value is 0, break
+            if (strcmp(buffer, "0") == 0) {
+                break;
+            }
+
+            // Check if the number is prime
+            if (isPrime(atoi(buffer))) {
+                printf("%s is prime\n", buffer);
+            } else {
+                printf("%s is not prime\n", buffer);
+            }
+
+        }
+
+        // Close the read end of the pipe
+        close(pipe_params[0]);
+    }
+
 }
