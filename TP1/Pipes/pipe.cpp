@@ -5,6 +5,7 @@
 #include <string.h>
 #include <cstdlib>
 #include <ctime>
+#include <iostream>
 
 
 #define buffer_size 20
@@ -23,10 +24,10 @@ int isPrime(long n) {
 	return true;
 }
 
-int main(){
+int main(int argc, char *argv[]){
     int N = 1;
     int delta;
-    int numbers_to_produce = 20;
+    int numbers_to_produce = atoi(argv[1]);
     char buffer[buffer_size];
     srand(time(0));
 
@@ -45,7 +46,7 @@ int main(){
         perror("fork failed");
         exit(EXIT_FAILURE);
     }
-
+    
     // If producer process
     if (pid > 0 ) {
         // Close the read end of the pipe= 0) {
