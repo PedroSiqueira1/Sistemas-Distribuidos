@@ -7,13 +7,14 @@
 #include <ctime>
 #include <iostream>
 
-
+// Define buffer size
 #define buffer_size 20
 
 using namespace std;
 
 int pipe_params[2];
 
+// Function to check if a number is prime
 int isPrime(long n) {
 	int i; 
 	for (i = 2; i <= n / 2; ++i) {
@@ -25,10 +26,12 @@ int isPrime(long n) {
 }
 
 int main(int argc, char *argv[]){
-    int N = 1;
-    int delta;
-    int numbers_to_produce = atoi(argv[1]);
-    char buffer[buffer_size];
+    int N = 1; // First number to be produced
+    int delta; // Random number to be added to N
+    int numbers_to_produce = atoi(argv[1]); // Number of numbers to be produced, read from command line
+    char buffer[buffer_size]; // Buffer to read and write to the pipe
+
+    // Seed the random number generator with the current time
     srand(time(0));
 
 
@@ -49,7 +52,7 @@ int main(int argc, char *argv[]){
     
     // If producer process
     if (pid > 0 ) {
-        // Close the read end of the pipe= 0) {
+
         // Close the read end of the pipe
         close(pipe_params[0]);
 
@@ -82,7 +85,7 @@ int main(int argc, char *argv[]){
         // Read from the pipe
         while (read(pipe_params[0], buffer, buffer_size) > 0) {
 
-            // If the read value is 0, break
+            // If the read value is 0, exit
             if (strcmp(buffer, "0") == 0) {
                 exit(0);
             }

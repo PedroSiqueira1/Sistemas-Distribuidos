@@ -2,7 +2,7 @@
 # include <csignal>
 
 
-// Receive signal from the system
+// Function to handle signals
 
 void signalHandler( int signum ) {
 
@@ -12,14 +12,19 @@ void signalHandler( int signum ) {
    }
 
    // Checks if the signal is SIGINT
-   if (signum == 2) {
+   else if (signum == 2) {
       std::cout << "Received signal SIGINT" << std::endl;
    }
 
    // Checks if the signal is SIGKILL
-   if (signum == 3) {
+   else if (signum == 3) {
       std::cout << "Received signal SIGKILL" << std::endl;
       raise(SIGKILL);
+   }
+
+   // Else, it is not a valid signal
+   else {
+      std::cout << "Not a valid signal" << std::endl;
    }
 }
 
@@ -28,11 +33,20 @@ int main (int argc, char *argv[]) {
    // Shows the PID of the process
    std::cout << "PID: " << getpid() << std::endl;
    
-   // register signal SIGINT and signal handler  
+   // Register signals to signal handler 
    signal(1, signalHandler);
    signal(2, signalHandler);
    signal(3, signalHandler);
+
+
+   // Ignore all other signals
+   for (int i = 1; i <= 64; i++) {
+      if (i != 1 && i != 2 && i != 3) {
+         signal(i, signalHandler);
+      }
+   }
    
+
    // Busy wait for signal
    if (atoi(argv[1]) == 0) {
       while(1) {
