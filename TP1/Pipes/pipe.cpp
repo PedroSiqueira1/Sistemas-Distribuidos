@@ -63,12 +63,16 @@ int main(int argc, char *argv[]){
         }
 
         // Write 0 in pipe to signal the end of the stream
-        sprintf(buffer, "%d", 0);
+        sprintf(buffer, "0");
         write(pipe_params[1], buffer, buffer_size);
         
 
         // Close the write end of the pipe
         close(pipe_params[1]);
+
+        // Wait for the child process to finish
+        wait(NULL);
+        exit(0);
     }
 
     if(pid == 0) {
@@ -80,7 +84,7 @@ int main(int argc, char *argv[]){
 
             // If the read value is 0, break
             if (strcmp(buffer, "0") == 0) {
-                break;
+                exit(0);
             }
 
             // Check if the number is prime
