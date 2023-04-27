@@ -1,12 +1,12 @@
-#include <iostream>
 #include <stdio.h>
+#include <iostream>
 #include <stdlib.h>
-#include <string.h>
 #include <unistd.h>
-#include <sys/types.h> 
+#include <string.h>
+#include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <time.h>
+#include <netdb.h>
 
 #define MSGLEN 64
 
@@ -27,48 +27,48 @@ void error(const char *msg)
 
 int main(int argc, char *argv[])
 {
-    int socket_fd, new_socket_fd, port_number;
-    socklen_t client_address_length;
-    struct sockaddr_in server_address, client_address;
-    int n;
-
-    srand(time(NULL));
+    int socket_fd, port_number, n;
+    struct sockaddr_in server_address;
+    struct hostent *server;
 
     // Check if the number of arguments is correct
-    if (argc < 3) {
+    if (argc < 4)
+    {
         cout << "Not enough arguments" << endl;
-        cout << "Usage: " << argv[0] << " <port> <random numbers>" << endl;
+        cout << "Usage: " << argv[0] << " <server> <port> <random numbers> " << endl;
         exit(1);
     }
 
+    // Get the port number from the command line arguments
+    port_number = atoi(argv[2]);
+
     // Socket for communication
     socket_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (socket_fd < 0) 
+    if (socket_fd < 0)
         error("Error: Failed opening socket");
 
+    // Get the server from the command line arguments
+    server = gethostbyname(argv[1]);
+    if (server == NULL)
+    {
+        error("Error: No such host");
+    }
+
     // Initialize the server address
-    memset((char *) &server_address, 0, sizeof(server_address));
-    port_number = atoi(argv[1]); // Get the port number from the command line arguments
-    server_address.sin_family = AF_INET; // Set the address family to IPv4
-    server_address.sin_addr.s_addr = INADDR_ANY; // Set the IP address to any available interface of the host
-    server_address.sin_port = htons(port_number); // Set the port number to the specified port number
+    memset((char *)&server_address, 0, sizeof(server_address)); // Clear the server address
+    server_address.sin_family = AF_INET;
+    memcpy((char *)&server_address.sin_addr.s_addr, (char *)server->h_addr, server->h_length); // Copy the server address
+    server_address.sin_port = htons(port_number);
 
-    // Bind the socket to the server address
-    if (bind(socket_fd, (struct sockaddr *) &server_address, sizeof(server_address)) < 0) 
-        error("Error: Failed binding");
+    // Connect to the server socket
+    if (connect(socket_fd, (struct sockaddr *)&server_address, sizeof(server_address)) < 0)
+        error("Error: Connection failed");
 
-    // Listen for connections
-    listen(socket_fd, 5);
-
-    // Accept a connection from the client
-    client_address_length = sizeof(client_address);
-    new_socket_fd = accept(socket_fd, (struct sockaddr *) &client_address, &client_address_length);
-    if (new_socket_fd < 0) 
-        error("Error: Failed accepting connection");
-    else {
+    else
+    {
         char message[MSGLEN];
         bool producer = true;
-        int count = atoi(argv[2]) + 1;
+        int count = atoi(argv[3]) + 1;
         int r_number = 3; // Start from 3 since we know 2 is the only even prime number
         int prime_flag;
 
@@ -87,13 +87,13 @@ int main(int argc, char *argv[])
 
             sprintf (message, "%d", r_number);
 
-            // Send the next number in the sequence to the client
-            n = write(new_socket_fd, message, sizeof(message));
+            // Send the next number in the sequence to the server
+            n = write(socket_fd, message, sizeof(message));
             if (n < 0)
                 error("Error: Failed writing to socket");
 
-            // Receive the result from the client
-            n = read(new_socket_fd, message, sizeof(message));
+            // Receive the result from the server
+            n = read(socket_fd, message, sizeof(message));
             if (n < 0)
                 error("Error: Failed reading from socket");
 
@@ -106,8 +106,6 @@ int main(int argc, char *argv[])
         }
     }
 
-    // Close the sockets
-    close(new_socket_fd);
     close(socket_fd);
-    return 0; 
+    return 0;
 }
