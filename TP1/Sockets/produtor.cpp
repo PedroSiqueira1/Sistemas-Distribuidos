@@ -7,6 +7,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <time.h>
+
 
 #define MSGLEN 64
 
@@ -30,6 +32,10 @@ int main(int argc, char *argv[])
     int socket_fd, port_number, n;
     struct sockaddr_in server_address;
     struct hostent *server;
+
+
+    srand(time(NULL));
+
 
     // Check if the number of arguments is correct
     if (argc < 4)
@@ -68,7 +74,7 @@ int main(int argc, char *argv[])
     {
         char message[MSGLEN];
         bool producer = true;
-        int count = atoi(argv[3]) + 1;
+        int count = atoi(argv[3]);
         int r_number = 3; // Start from 3 since we know 2 is the only even prime number
         int prime_flag;
 

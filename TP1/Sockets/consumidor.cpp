@@ -6,7 +6,6 @@
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <netinet/in.h>
-#include <time.h>
 
 #define MSGLEN 64
 
@@ -35,8 +34,6 @@ int main(int argc, char *argv[])
     socklen_t client_address_length;
     struct sockaddr_in server_address, client_address;
     int n;
-
-    srand(time(NULL));
 
     // Check if the number of arguments is correct
     if (argc < 2) {
