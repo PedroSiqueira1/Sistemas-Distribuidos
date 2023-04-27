@@ -1,6 +1,3 @@
-// TP1 Distributed System
-// Pedro Elias Gonçalves Antonio and Pedro Siqueira das Neves
-
 #include <iostream>
 #include <stdio.h>
 #include <stdlib.h>
