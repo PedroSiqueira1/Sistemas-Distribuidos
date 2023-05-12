@@ -14,10 +14,24 @@ int produced_numbers = 0;
 int keep_producing = 1;
 int keep_consuming = 1;
 std::vector<pthread_t> threads;
+std::vector<int> buffer_tracker;
 sem_t mutex;
-sem_t empty_zap, full;
+sem_t empty, full;
 sem_t threads_producer, threads_consumer;
 
+void writeVectorToFile(int vector[], int size, const char* filename) {
+    FILE* file = fopen(filename, "w");
+    if (file == NULL) {
+        printf("Error opening file %s.\n", filename);
+        return;
+    }
+
+    for (int i = 0; i < size; i++) {
+        fprintf(file, "%i\n", vector[i]);
+    }
+
+    fclose(file);
+}
 
 
 // generate random number between 1 and 10⁷
@@ -90,11 +104,22 @@ void *producer(void* arg) {
     
     while(keep_producing) {
         int number = random_number();
-        sem_wait(&empty_zap);
+        // Try waiting on 'full' with a timeout
+        struct timespec tx;
+        clock_gettime(CLOCK_REALTIME, &tx);
+        tx.tv_sec += 1;  // Add 1 second timeout
+
+        int result = sem_timedwait(&empty, &tx);
+        if (result == -1) {
+            // Timeout occurred, break from the loop
+            std::cout << "Timeout occurred. Thread terminating." << std::endl;
+            break;
+        }
         sem_wait(&mutex);
         if (consumed_numbers < numbers_to_consume) {
             add_resource(number);
             produced_numbers++;
+            buffer_tracker.push_back(buffer_tracker.back() + 1);
         }
         else {
             keep_producing = 0;
@@ -110,11 +135,22 @@ void *producer(void* arg) {
 void* consumer(void* arg) {
     
     while(keep_consuming){  
-        sem_wait(&full);
+        // Try waiting on 'full' with a timeout
+        struct timespec ts;
+        clock_gettime(CLOCK_REALTIME, &ts);
+        ts.tv_sec += 1;  // Add 1 second timeout
+
+        int result = sem_timedwait(&full, &ts);
+        if (result == -1) {
+            // Timeout occurred, break from the loop
+            std::cout << "Timeout occurred. Thread terminating." << std::endl;
+            break;
+        }
         sem_wait(&mutex);
         if (consumed_numbers < numbers_to_consume) {
             int number = remove_resource();
             consumed_numbers++;
+            buffer_tracker.push_back(buffer_tracker.back() - 1);
             if (isPrime(number)) {
                 std::cout << "Prime number: " << number << std::endl;
             }
@@ -126,7 +162,7 @@ void* consumer(void* arg) {
             keep_consuming = 0;
         }
         sem_post(&mutex);
-        sem_post(&empty_zap);
+        sem_post(&empty);
 
         
 
@@ -177,6 +213,10 @@ int main(int argc, char* argv[]) {
 
     }
 
+
+    // Buffer tracker to keep track of the buffer
+    buffer_tracker.push_back(0);
+
     // Set random seed
     srand(time(NULL));
 
@@ -187,6 +227,7 @@ int main(int argc, char* argv[]) {
 
     clock_t start, end;
     double total_time;
+    
     
     // Create shared memory
     shared_memory = (int*) malloc(memorySize * sizeof(int)); 
@@ -199,7 +240,7 @@ int main(int argc, char* argv[]) {
 
     // Create semaphores
     sem_init(&mutex, 0, 1);
-    sem_init(&empty_zap, 0, memorySize);
+    sem_init(&empty, 0, memorySize);
     sem_init(&full, 0, 0);
 
     // Start clock
@@ -217,7 +258,7 @@ int main(int argc, char* argv[]) {
     
     // Destroy semaphores
     sem_destroy(&mutex);
-    sem_destroy(&empty_zap);
+    sem_destroy(&empty);
     sem_destroy(&full);
 
     // Free shared memory
@@ -225,6 +266,12 @@ int main(int argc, char* argv[]) {
 
     // Print results
     std::cout << "Total time: " << total_time << std::endl;
+    std::cout << "Produced numbers: " << produced_numbers << std::endl;
+    std::cout << "Consumed numbers: " << consumed_numbers << std::endl;
+
+    const char* filename = "buffer_tracker.txt";
+    writeVectorToFile(buffer_tracker.data(), buffer_tracker.size(), filename);
+    std::cout << "Buffer tracker written to file " << filename << std::endl;
 
     return 0;
 }
