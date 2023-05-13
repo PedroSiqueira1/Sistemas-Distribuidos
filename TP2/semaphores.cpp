@@ -19,7 +19,7 @@ sem_t mutex;
 sem_t empty, full;
 sem_t threads_producer, threads_consumer;
 
-void writeVectorToFile(int vector[], int size, const char* filename) {
+void writeVectorToFile(int vector[], int size, const char* filename, double total_time) {
     FILE* file = fopen(filename, "w");
     if (file == NULL) {
         printf("Error opening file %s.\n", filename);
@@ -30,8 +30,13 @@ void writeVectorToFile(int vector[], int size, const char* filename) {
         fprintf(file, "%i\n", vector[i]);
     }
 
+    fprintf(file, "%f\n", total_time);
+
     fclose(file);
 }
+
+// append total_time to file
+
 
 
 // generate random number between 1 and 10⁷
@@ -269,9 +274,14 @@ int main(int argc, char* argv[]) {
     std::cout << "Produced numbers: " << produced_numbers << std::endl;
     std::cout << "Consumed numbers: " << consumed_numbers << std::endl;
 
+    // Write buffer tracker to file
     const char* filename = "buffer_tracker.txt";
-    writeVectorToFile(buffer_tracker.data(), buffer_tracker.size(), filename);
+    writeVectorToFile(buffer_tracker.data(), buffer_tracker.size(), filename, total_time);
     std::cout << "Buffer tracker written to file " << filename << std::endl;
+    
+    // Wrie total time to file
+    filename = "buffer_tracker.txt";
+    
 
     return 0;
 }
