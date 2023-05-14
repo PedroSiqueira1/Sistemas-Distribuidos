@@ -1,11 +1,12 @@
 import subprocess
 import matplotlib.pyplot as plt
+import sys
 
 # Path to the compiled file
 file_path = "/home/a239277/Documents/Projetos/Trabalho/TP2/semap"
 
 # Command-line arguments for the file
-arguments = ["1000", "8", "1"]
+arguments = sys.argv[1:]  # Exclude the first argument, which is the script name
 
 # Dict to store the buffer_tracker
 buffer_tracker = {}
