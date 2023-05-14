@@ -104,28 +104,37 @@ int remove_resource() {
 // Producer thread
 void *producer(void* arg) {
     
+    struct timespec tx;
     while(keep_producing) {
-        int number = random_number();
-        // Try waiting on 'full' with a timeout, if timeout occurs, break from the loop
-        struct timespec tx;
-        clock_gettime(CLOCK_REALTIME, &tx);
-        tx.tv_sec += 1;  // Add 1 second timeout
 
+        int number = random_number();
+
+        // Get current time
+        clock_gettime(CLOCK_REALTIME, &tx);
+        tx.tv_sec += 1;
+
+        // Try waiting on 'full' with a timeout, if timeout occurs, break from the loop
         int result = sem_timedwait(&empty, &tx);
         if (result == -1) {
-            // Timeout occurred, break from the loop
             std::cout << "Timeout occurred. Thread terminating." << std::endl;
             break;
         }
+
         sem_wait(&mutex);
+
+        // Produce resource
         if (consumed_numbers < numbers_to_consume) {
             add_resource(number);
             produced_numbers++;
+
+            // Add to buffer tracker
             buffer_tracker.push_back(buffer_tracker.back() + 1);
         }
+
         else {
             keep_producing = 0;
         }
+
         sem_post(&mutex);
         sem_post(&full);
     }
@@ -135,38 +144,48 @@ void *producer(void* arg) {
 
 // Consumer thread
 void* consumer(void* arg) {
-    
+    struct timespec ts;    
     while(keep_consuming){  
-        // Try waiting on 'full' with a timeout, if timeout occurs, break from the loop
-        struct timespec ts;
+        
+        // Get current time
         clock_gettime(CLOCK_REALTIME, &ts);
-        ts.tv_sec += 1;  // Add 1 second timeout
+        ts.tv_sec += 1;
 
+        // Try waiting on 'full' with a timeout, if timeout occurs, break from the loop
         int result = sem_timedwait(&full, &ts);
         if (result == -1) {
-            // Timeout occurred, break from the loop
             std::cout << "Timeout occurred. Thread terminating." << std::endl;
             break;
         }
+
         sem_wait(&mutex);
+
+        // Consume resource
         if (consumed_numbers < numbers_to_consume) {
             int number = remove_resource();
             consumed_numbers++;
+
+            // Add to buffer tracker
             buffer_tracker.push_back(buffer_tracker.back() - 1);
+
+            // Check if number is prime
             if (isPrime(number)) {
                 std::cout << "Prime number: " << number << std::endl;
             }
             else {
                 std::cout << "Not prime number: " << number << std::endl;
+            }
         }
-        }
+
         else {
             keep_consuming = 0;
         }
+
         sem_post(&mutex);
         sem_post(&empty);   
 
     }
+
     return NULL;
     
 }
@@ -174,6 +193,7 @@ void* consumer(void* arg) {
 // Create producers and consumers threads
 void create_threads(int producer_threads, int consumer_threads) {
 
+    // Reserve space for threads
     threads.reserve(producer_threads + consumer_threads);
 
     for (int i = 0; i < producer_threads; i++) {
