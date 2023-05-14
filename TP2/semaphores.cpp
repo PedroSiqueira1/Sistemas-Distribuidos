@@ -1,11 +1,10 @@
-// Producter-Consumer problem with semaphores with multithreading   
 #include <iostream>
 #include <pthread.h>         
 #include <time.h>
 #include <semaphore.h>
 #include <vector>
 
-
+// Define variables
 int *shared_memory;
 int memorySize;
 int numbers_to_consume = 10000;
@@ -19,6 +18,7 @@ sem_t mutex;
 sem_t empty, full;
 sem_t threads_producer, threads_consumer;
 
+// Function to write vector to file with total time
 void writeVectorToFile(int vector[], int size, const char* filename, double total_time) {
     FILE* file = fopen(filename, "w");
     if (file == NULL) {
@@ -30,16 +30,14 @@ void writeVectorToFile(int vector[], int size, const char* filename, double tota
         fprintf(file, "%i\n", vector[i]);
     }
 
+    // Write total time
     fprintf(file, "%f\n", total_time);
 
     fclose(file);
 }
 
-// append total_time to file
 
-
-
-// generate random number between 1 and 10⁷
+// Generate random number between 1 and 10⁷
 int random_number() {
     return rand() % 10000000 + 1;
 }
@@ -65,8 +63,7 @@ int getFullPosition() {
     return -1;
 }
 
-// check if number is prime
-
+// Check if number is prime
 int isPrime(long n) {
 	int i; 
 	for (i = 2; i <= n / 2; ++i) {
@@ -77,7 +74,7 @@ int isPrime(long n) {
 	return true;
 }
 
-// add new resource in the buffer
+// Add new resource in the buffer
 void add_resource(int item) {
     int emptyPosition = getEmptyPosition();
     if (emptyPosition != -1) {
@@ -88,7 +85,7 @@ void add_resource(int item) {
     }
 }
 
-// remove resource from the buffer
+// Remove resource from the buffer
 int remove_resource() {
     int fullPosition = getFullPosition();
     if (fullPosition != -1) {
@@ -104,12 +101,12 @@ int remove_resource() {
 
 
 
-// producer thread
+// Producer thread
 void *producer(void* arg) {
     
     while(keep_producing) {
         int number = random_number();
-        // Try waiting on 'full' with a timeout
+        // Try waiting on 'full' with a timeout, if timeout occurs, break from the loop
         struct timespec tx;
         clock_gettime(CLOCK_REALTIME, &tx);
         tx.tv_sec += 1;  // Add 1 second timeout
@@ -136,11 +133,11 @@ void *producer(void* arg) {
     return NULL;
 }
 
-// consumer thread
+// Consumer thread
 void* consumer(void* arg) {
     
     while(keep_consuming){  
-        // Try waiting on 'full' with a timeout
+        // Try waiting on 'full' with a timeout, if timeout occurs, break from the loop
         struct timespec ts;
         clock_gettime(CLOCK_REALTIME, &ts);
         ts.tv_sec += 1;  // Add 1 second timeout
@@ -167,9 +164,7 @@ void* consumer(void* arg) {
             keep_consuming = 0;
         }
         sem_post(&mutex);
-        sem_post(&empty);
-
-        
+        sem_post(&empty);   
 
     }
     return NULL;
@@ -194,7 +189,6 @@ void create_threads(int producer_threads, int consumer_threads) {
 // Join all threads
 void join_threads(int producer_threads, int consumer_threads) {
     
-  
     for (int i = 0; i < producer_threads + consumer_threads; i++) {
         // Check if thread is joinable
         if (pthread_join(threads[i], NULL) != 0) {
@@ -204,8 +198,6 @@ void join_threads(int producer_threads, int consumer_threads) {
 
     }
 }
-
-
 
 
 int main(int argc, char* argv[]) {
@@ -218,8 +210,7 @@ int main(int argc, char* argv[]) {
 
     }
 
-
-    // Buffer tracker to keep track of the buffer
+    // Initialize buffer tracker with 0
     buffer_tracker.push_back(0);
 
     // Set random seed
@@ -229,10 +220,6 @@ int main(int argc, char* argv[]) {
     memorySize = atoi(argv[1]);
     int producers_threads = atoi(argv[2]);
     int consumers_threads = atoi(argv[3]);
-
-    clock_t start, end;
-    double total_time;
-    
     
     // Create shared memory
     shared_memory = (int*) malloc(memorySize * sizeof(int)); 
@@ -242,13 +229,14 @@ int main(int argc, char* argv[]) {
         shared_memory[i] = 0;
     }
 
-
     // Create semaphores
     sem_init(&mutex, 0, 1);
     sem_init(&empty, 0, memorySize);
     sem_init(&full, 0, 0);
 
     // Start clock
+    clock_t start, end;
+    double total_time;
     start = clock();
 
     // Create threads
@@ -278,10 +266,6 @@ int main(int argc, char* argv[]) {
     const char* filename = "buffer_tracker.txt";
     writeVectorToFile(buffer_tracker.data(), buffer_tracker.size(), filename, total_time);
     std::cout << "Buffer tracker written to file " << filename << std::endl;
-    
-    // Wrie total time to file
-    filename = "buffer_tracker.txt";
-    
 
     return 0;
 }
