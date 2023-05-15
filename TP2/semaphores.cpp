@@ -3,17 +3,20 @@
 #include <time.h>
 #include <semaphore.h>
 #include <vector>
+#include <list>
 
 // Define variables
 int *shared_memory;
 int memorySize;
-int numbers_to_consume = 10000;
+int numbers_to_consume = 100000;
 int consumed_numbers = 0; 
 int produced_numbers = 0;
 int keep_producing = 1;
 int keep_consuming = 1;
 std::vector<pthread_t> threads;
 std::vector<int> buffer_tracker;
+std::list<int> freeList;
+std::list<int> occupiedList;
 sem_t mutex;
 sem_t empty, full;
 sem_t threads_producer, threads_consumer;
@@ -36,6 +39,12 @@ void writeVectorToFile(int vector[], int size, const char* filename, double tota
     fclose(file);
 }
 
+// Fill free list with all positions in shared memory
+void fillFreeList() {
+    for (int i = 0; i < memorySize; i++) {
+        freeList.push_back(i);
+    }
+}
 
 // Generate random number between 1 and 10⁷
 int random_number() {
@@ -45,28 +54,35 @@ int random_number() {
 
 // Get empty position in shared memory
 int getEmptyPosition() {
-    for (int i = 0; i < memorySize; i++) {
-        if (shared_memory[i] == 0) {
-            return i;
-        }
+    if (freeList.empty()) {
+        return -1; // No empty positions available
     }
-    return -1;
+
+    int position = freeList.front();
+    freeList.pop_front(); // Remove the position from the free list
+    occupiedList.push_back(position); // Add the position to the occupied list
+    return position;
+
 }
+
 
 // Get full position in shared memory
 int getFullPosition() {
-    for (int i = 0; i < memorySize; i++) {
-        if (shared_memory[i] != 0) {
-            return i;
-        }
+    if (occupiedList.empty()) {
+        return -1; // No full positions available
     }
-    return -1;
+
+    int position = occupiedList.front();
+    occupiedList.pop_front(); // Remove the position from the occupied list
+    freeList.push_back(position); // Add the position to the free list
+    return position;
+    
 }
 
 // Check if number is prime
 int isPrime(long n) {
 	int i; 
-	for (i = 2; i <= n / 2; ++i) {
+	for (i = 2; i * i <= n; ++i) {
 		if (n % i == 0){
             return false;
         }
@@ -244,10 +260,8 @@ int main(int argc, char* argv[]) {
     // Create shared memory
     shared_memory = (int*) malloc(memorySize * sizeof(int)); 
 
-    // Fill shared memory with zeros
-    for (int i = 0; i < memorySize; i++) {
-        shared_memory[i] = 0;
-    }
+    // Fill free list
+    fillFreeList();
 
     // Create semaphores
     sem_init(&mutex, 0, 1);
