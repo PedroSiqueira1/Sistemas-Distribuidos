@@ -11,8 +11,6 @@ int memorySize;
 int numbers_to_consume = 100000;
 int consumed_numbers = 0; 
 int produced_numbers = 0;
-int keep_producing = 1;
-int keep_consuming = 1;
 std::vector<pthread_t> threads;
 std::vector<int> buffer_tracker;
 std::list<int> freeList;
@@ -119,91 +117,65 @@ int remove_resource() {
 
 // Producer thread
 void *producer(void* arg) {
-    
-    struct timespec tx;
-    while(keep_producing) {
+    while(consumed_numbers < numbers_to_consume) {
 
-        int number = random_number();
-
-        // Get current time
-        clock_gettime(CLOCK_REALTIME, &tx);
-        tx.tv_sec += 1;
-
-        // Try waiting on 'full' with a timeout, if timeout occurs, break from the loop
-        int result = sem_timedwait(&empty, &tx);
-        if (result == -1) {
-            std::cout << "Timeout occurred. Thread terminating." << std::endl;
-            break;
-        }
-
+        
+        sem_wait(&empty);
         sem_wait(&mutex);
 
         // Produce resource
-        if (consumed_numbers < numbers_to_consume) {
-            add_resource(number);
-            produced_numbers++;
+        int number = random_number();
+        add_resource(number);
+        produced_numbers++;
 
-            // Add to buffer tracker
-            buffer_tracker.push_back(buffer_tracker.back() + 1);
-        }
-
-        else {
-            keep_producing = 0;
-        }
-
+        // Add to buffer tracker
+        buffer_tracker.push_back(buffer_tracker.back() + 1);
+    
         sem_post(&mutex);
         sem_post(&full);
     }
-    
+
+    // Signal consumers to stop
+    sem_post(&empty);
+    sem_post(&full);
+
     return NULL;
 }
 
 // Consumer thread
 void* consumer(void* arg) {
-    struct timespec ts;    
-    while(keep_consuming){  
+    
+    while(consumed_numbers < numbers_to_consume){  
         
-        // Get current time
-        clock_gettime(CLOCK_REALTIME, &ts);
-        ts.tv_sec += 1;
-
-        // Try waiting on 'full' with a timeout, if timeout occurs, break from the loop
-        int result = sem_timedwait(&full, &ts);
-        if (result == -1) {
-            std::cout << "Timeout occurred. Thread terminating." << std::endl;
-            break;
-        }
-
+        sem_wait(&full);
         sem_wait(&mutex);
 
         // Consume resource
-        if (consumed_numbers < numbers_to_consume) {
-            int number = remove_resource();
-            consumed_numbers++;
+        int number = remove_resource();
+        consumed_numbers++;
 
-            // Add to buffer tracker
-            buffer_tracker.push_back(buffer_tracker.back() - 1);
-
-            // Check if number is prime
-            if (isPrime(number)) {
-                std::cout << "Prime number: " << number << std::endl;
-            }
-            else {
-                std::cout << "Not prime number: " << number << std::endl;
-            }
-        }
-
-        else {
-            keep_consuming = 0;
-        }
+        // Add to buffer tracker
+        buffer_tracker.push_back(buffer_tracker.back() - 1);
 
         sem_post(&mutex);
-        sem_post(&empty);   
+        sem_post(&empty);  
+
+        // Check if number is prime
+        if (isPrime(number)) {
+           // std::cout << "Prime number: " << number << std::endl;
+        }
+        else {
+          //  std::cout << "Not prime number: " << number << std::endl;
+        }
+        
 
     }
 
-    return NULL;
+    // Signal producers to stop
+    sem_post(&empty);
+    sem_post(&full);
     
+    return NULL;
 }
 
 // Create producers and consumers threads
@@ -269,9 +241,9 @@ int main(int argc, char* argv[]) {
     sem_init(&full, 0, 0);
 
     // Start clock
-    clock_t start, end;
+    struct timespec start, end;
     double total_time;
-    start = clock();
+    clock_gettime(CLOCK_MONOTONIC, &start); //Start execution time
 
     // Create threads
     create_threads(producers_threads, consumers_threads);
@@ -280,8 +252,8 @@ int main(int argc, char* argv[]) {
     join_threads(producers_threads, consumers_threads);
 
     // End clock
-    end = clock();
-    total_time = ((double) (end - start)) / CLOCKS_PER_SEC;
+    clock_gettime(CLOCK_MONOTONIC, &end); //Start execution time
+    total_time = (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1000000000.0;
     
     // Destroy semaphores
     sem_destroy(&mutex);

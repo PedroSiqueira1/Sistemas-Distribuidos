@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import sys
 
 # Path to the compiled file
-file_path = "/home/a239277/Documents/Projetos/Trabalho/TP2/semap"
+file_path = "/home/a239277/Documents/Projetos/Trabalho/TP2/ProducerConsumer/semap"
 
 # Command-line arguments for the file
 arguments = sys.argv[1:]  # Exclude the first argument, which is the script name
@@ -46,8 +46,11 @@ for key, value in buffer_tracker.items():
 # Function to plot the buffer_tracker
 def plot_buffer_tracker(buffer_tracker):
     plt.plot(buffer_tracker[0])
+    plt.xlabel("Produced/Consumed Buffers")
+    plt.ylabel("Full Buffers")
     plt.show()
+
 
 # Plot the buffer_tracker
 print("Mean time: {}".format(total_time/10))
-plot_buffer_tracker(buffer_tracker)
+#plot_buffer_tracker(buffer_tracker)
