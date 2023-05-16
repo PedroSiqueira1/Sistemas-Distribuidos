@@ -10,9 +10,9 @@ arguments = sys.argv[1:]  # Exclude the first argument, which is the script name
 
 # Dict to store the buffer_tracker
 buffer_tracker = {}
-run_iterations = 0
 
-    
+
+run_iterations = 0  
 # function to read buffer_tracker file
 def read_buffer_tracker(buffer_tracker):
     global run_iterations
@@ -50,7 +50,8 @@ def plot_buffer_tracker(buffer_tracker):
     plt.ylabel("Full Buffers")
     plt.show()
 
+# Plot the mean time
+print("Mean time: {}".format(total_time/10))
 
 # Plot the buffer_tracker
-print("Mean time: {}".format(total_time/10))
-#plot_buffer_tracker(buffer_tracker)
+plot_buffer_tracker(buffer_tracker)

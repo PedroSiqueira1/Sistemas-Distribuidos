@@ -162,10 +162,10 @@ void* consumer(void* arg) {
 
         // Check if number is prime
         if (isPrime(number)) {
-           // std::cout << "Prime number: " << number << std::endl;
+           std::cout << "Prime number: " << number << std::endl;
         }
         else {
-          //  std::cout << "Not prime number: " << number << std::endl;
+           std::cout << "Not prime number: " << number << std::endl;
         }
         
 
