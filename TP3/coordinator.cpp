@@ -14,6 +14,8 @@
 #include <unistd.h>
 #include <map>
 #include <string.h>
+#include <fcntl.h>
+
 
 
 
@@ -83,11 +85,16 @@ void handleRequest(int socket) {
     char buffer[BUFFER_SIZE];
     int clientId = -1; // Variable for client ID, initialized to -1
     bool clientSet = false; // Flag to check if client ID is already set
+    // Set socket to non-blocking mode
+    int flags = fcntl(socket, F_GETFL, 0);
+    fcntl(socket, F_SETFL, flags | O_NONBLOCK);
+
+
     while (true) {
         memset(buffer, 0, sizeof(buffer));
-        // Cout client ID and thread ID
+        // Cout thread ID and client ID
         int bytesRead = read(socket, buffer, BUFFER_SIZE - 1);
-
+    
         std::string received(buffer);
 
         if (!clientSet) {
@@ -97,8 +104,6 @@ void handleRequest(int socket) {
                 clientSet = true;
             }
         }
-
-        std::cout << "Client ID: " << clientId << ", Thread ID: " << std::this_thread::get_id() << std::endl;
         
         if (received.substr(0, 1) == "1") {
             // Received request message from client
@@ -111,7 +116,10 @@ void handleRequest(int socket) {
             // Perform any additional operations related to request
             // ...
 
-        } else if (received.substr(0, 1) == "3") {
+        
+        } 
+        
+        else if (received.substr(0, 1) == "3") {
             // Received release message from client
             // Process the release or take necessary actions
 
@@ -133,8 +141,8 @@ void handleRequest(int socket) {
         // If yes, send "2" to the client to indicate access to the critical region
         {
             std::lock_guard<std::mutex> lock(mtx);
-            cout << clientId << endl;
             if (!requestQueue.empty() && requestQueue.front() == clientId) {
+
                 std::string accessMessage = "2";
                 send(socket, accessMessage.c_str(), BUFFER_SIZE, 0);
             }
