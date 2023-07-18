@@ -15,19 +15,19 @@
 #include <map>
 #include <string.h>
 #include <fcntl.h>
-
-
+#include <cstdlib>
 
 
 using namespace std;
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 10
 #define PORT 8888
 
 std::mutex mtx;
+std::mutex logMutex;
 std::queue<int> requestQueue;
-std::condition_variable cv;
 int coordinatorId; // Global variable for coordinator ID
 std::map<int, int> processExecutionCount; // Global variable for process execution count
+
 
 
 // Terminal Thread that keeps waiting for commands
@@ -60,24 +60,32 @@ void terminal_thread() {
         }
         
         if (command == "3") {
-            // stop coordinator
+            // Stop coordinator 
             std::cout << "Coordinator stopped" << std::endl;
+            std::system("python3 cleanlog.py");            
             exit(0);
         }
     }
 }
 
-// Create resultado.txt file
-void createFile() {
-    // Open the file in output mode
-    std::ofstream outputFile("resultado.txt");
-
-    if (outputFile.is_open()) {
-        outputFile.close();
+// Create resultado.txt and log.txt files
+void createFiles() {
+    // Create resultado.txt file
+    std::ofstream resultadoFile("resultado.txt");
+    if (resultadoFile.is_open()) {
+        resultadoFile.close();
         std::cout << "Blank file created successfully: resultado.txt" << std::endl;
-    }
-    else {
+    } else {
         std::cout << "Failed to create blank file: resultado.txt" << std::endl;
+    }
+
+    // Create log.txt file
+    std::ofstream logFile("log.txt");
+    if (logFile.is_open()) {
+        logFile.close();
+        std::cout << "Blank file created successfully: log.txt" << std::endl;
+    } else {
+        std::cout << "Failed to create blank file: log.txt" << std::endl;
     }
 }
 
@@ -93,9 +101,11 @@ void handleRequest(int socket) {
     while (true) {
         memset(buffer, 0, sizeof(buffer));
         // Cout thread ID and client ID
-        int bytesRead = read(socket, buffer, BUFFER_SIZE - 1);
+        int bytesRead = read(socket, buffer, BUFFER_SIZE);
     
         std::string received(buffer);
+
+
 
         if (!clientSet) {
             // Set client ID if not already set
@@ -104,8 +114,24 @@ void handleRequest(int socket) {
                 clientSet = true;
             }
         }
+
+        // Log the received message
+            {
+                std::lock_guard<std::mutex> lock(logMutex);
+                std::ofstream logFile("log.txt", std::ios_base::app);
+                if (logFile.is_open()) {
+                    if (received.empty() == false){
+                        cout << "Received: " << received << endl;
+                        logFile << "Received: " << received << std::endl;                        
+                    }
+                    logFile.close();
+                } else {
+                    std::cerr << "Failed to open log file: log.txt" << std::endl;
+                }
+            }
+
         
-        if (received.substr(0, 1) == "1") {
+        if (received.substr(0, 1) == "1" && received.size() == 10) {
             // Received request message from client
             // Add client to the request queue
             {
@@ -113,13 +139,10 @@ void handleRequest(int socket) {
                 requestQueue.push(clientId);
             }
 
-            // Perform any additional operations related to request
-            // ...
-
         
         } 
         
-        else if (received.substr(0, 1) == "3") {
+        else if (received.substr(0, 1) == "3" && received.size() == 10) {
             // Received release message from client
             // Process the release or take necessary actions
 
@@ -141,9 +164,27 @@ void handleRequest(int socket) {
         // If yes, send "2" to the client to indicate access to the critical region
         {
             std::lock_guard<std::mutex> lock(mtx);
-            if (!requestQueue.empty() && requestQueue.front() == clientId) {
+            if (requestQueue.front() == clientId) {
+                
+    
 
-                std::string accessMessage = "2";
+                // Send 2|coordinatorId to client
+                std::string accessMessage = "2|" + std::to_string(coordinatorId) + "|";
+                if (accessMessage.size() < BUFFER_SIZE) {
+                    accessMessage.append(BUFFER_SIZE - accessMessage.size(), '0');
+                }
+
+                 // Log the sent message
+                {
+                    std::lock_guard<std::mutex> lock(logMutex);
+                    std::ofstream logFile("log.txt", std::ios_base::app);
+                    if (logFile.is_open()) {
+                        logFile << "Sent: " << accessMessage << std::endl;
+                        logFile.close();
+                    } else {
+                        std::cerr << "Failed to open log file: log.txt" << std::endl;
+                    }
+                }
                 send(socket, accessMessage.c_str(), BUFFER_SIZE, 0);
             }
         }
@@ -155,6 +196,9 @@ void manager_thread() {
     struct sockaddr_in address;
     int addrlen = sizeof(address);
     std::vector<std::thread> threads;
+
+    // Define coordinator ID
+    coordinatorId = getpid();
 
     // Create server socket
     if ((server_socket = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
@@ -203,16 +247,20 @@ void manager_thread() {
 
     // Close the server socket
     close(server_socket);
+
+    std::system("python3 cleanlog.py");
+
 }
 
 int main() {
-    // Create resultado.txt file
-    createFile();
+    // Create resultado.txt and log.txt files
+    createFiles();
 
     // Create terminal thread
     std::thread terminal(terminal_thread);    
     std::thread manager(manager_thread);
     manager.join();
+
 
     return 0;
 }

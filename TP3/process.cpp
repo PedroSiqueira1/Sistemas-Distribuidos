@@ -8,9 +8,18 @@
 #include <ctime>
 #include <arpa/inet.h>
 
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 10
 
-int main() {
+int processId;  // Global variable for process ID
+
+int main(int argc, char const *argv[]) {
+
+    processId = getpid();
+
+    int r = atoi(argv[1]); // Number of repetitions
+    int k = atoi(argv[2]); // Number of seconds to wait
+
+
     // Create a socket for communication with the coordinator
     int clientSocket = socket(AF_INET, SOCK_STREAM, 0);
     if (clientSocket == -1) {
@@ -33,11 +42,13 @@ int main() {
         return 1;
     }
 
-    int r = 3;  // Adjust the number of repetitions as needed
-
     for (int i = 0; i < r; ++i) {
-        // Send request to the coordinator | process ID
-        std::string requestMessage = "1|" + std::to_string(getpid());
+        // Send request to the coordinator | process ID | fill with 0s to make the message buffer size long
+        std::string requestMessage = "1|" + std::to_string(processId) + "|";
+        if (requestMessage.size() < BUFFER_SIZE) {
+            requestMessage.append(BUFFER_SIZE - requestMessage.size(), '0');
+        }
+
         if (send(clientSocket, requestMessage.c_str(), requestMessage.size(), 0) == -1) {
             std::cerr << "Error sending request to coordinator" << std::endl;
             close(clientSocket);
@@ -45,18 +56,23 @@ int main() {
         }
 
         char buffer[BUFFER_SIZE];
-        memset(buffer, 0, sizeof(buffer));
 
         // Receive response from the coordinator
         while (true) {
-            if (recv(clientSocket, buffer, BUFFER_SIZE - 1, 0) == -1) {
+            // Clear the buffer for the next read
+            memset(buffer, 0, sizeof(buffer));
+            int bytesRead = recv(clientSocket, buffer, BUFFER_SIZE, 0);
+            if ( bytesRead == -1) {
                 std::cerr << "Error receiving response from coordinator" << std::endl;
                 close(clientSocket);
                 return 1;
             }
             std::string response(buffer);
+            if (response.empty()) {
+                continue;
+            }
             std::cout << "Received response: " << response << std::endl;
-            if (response.substr(0, 1) == "2") {
+            if (response.size() == 10 && response.substr(0, 1) == "2") {
                 // Received access message from coordinator
                 // Proceed with critical region access
 
@@ -73,24 +89,24 @@ int main() {
                 // Write process ID and current time to the file
                 auto now = std::chrono::system_clock::now();
                 std::time_t now_c = std::chrono::system_clock::to_time_t(now);
-                file << getpid() << " " << std::ctime(&now_c);
+                file << processId << " " << std::ctime(&now_c);
 
                 // Close the file
                 file.close();
 
                 // Wait for k seconds
-                int k = 7;  // Adjust the wait time as needed
-                sleep(k);
 
+                sleep(k);
                 break;
             }
 
-            // Clear the buffer for the next read
-            memset(buffer, 0, sizeof(buffer));
         }
 
-        // After completing the critical region, release access by sending "3" | process id to the coordinator
-        std::string releaseMessage = "3|" + std::to_string(getpid());
+        // After completing the critical region, release access by sending "3" | process id to the coordinator | fill with 0s to make the message buffer size long
+        std::string releaseMessage = "3|" + std::to_string(processId) + "|";
+        if (releaseMessage.size() < BUFFER_SIZE) {
+            releaseMessage.append(BUFFER_SIZE - releaseMessage.size(), '0');
+        }
         if (send(clientSocket, releaseMessage.c_str(), releaseMessage.size(), 0) == -1) {
             std::cerr << "Error sending release message to coordinator" << std::endl;
             close(clientSocket);
